@@ -10,8 +10,6 @@ if __name__ == "__main__":
 
     with open("README.rst") as fh:
         long_description = fh.read()
-    with open("CHANGELOG.rst") as fh:
-        long_description += "\n" + fh.read()
 
     with open("requirements.txt", encoding="utf-8") as req:
         install_requires = [
@@ -40,7 +38,7 @@ if __name__ == "__main__":
         long_description_content_type="text/x-rst",
         author="The SimpleBot Contributors",
         author_email="adbenitez@nauta.cu, correaleyval@gmail.com",
-        url="https://github.com/adbenitez/simplebot_memes_es",
+        url=f"https://github.com/adbenitez/{MODULE_NAME}",
         keywords="simplebot plugin deltachat",
         license="MPL",
         classifiers=[
