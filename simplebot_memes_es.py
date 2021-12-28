@@ -102,9 +102,7 @@ class TestPlugin:
     def test_cuantarazon(self, mocker):
         msg = mocker.get_one_reply("/cuantarazon")
         assert msg.filename
-        assert msg.is_image()
 
     def test_cuantocabron(self, mocker):
         msg = mocker.get_one_reply("/cuantocabron")
         assert msg.filename
-        assert msg.is_image()
