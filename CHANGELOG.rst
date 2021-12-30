@@ -1,6 +1,11 @@
 Changelog
 =========
 
+`Unreleased`_
+-------------
+
+- added new commands to get memes from https://www.planetaneperiano.com
+
 `1.1.0`_
 --------
 

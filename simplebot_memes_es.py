@@ -3,14 +3,53 @@
 import functools
 import io
 import mimetypes
+import os
+import random
 import re
 
 import bs4
 import requests
 import simplebot
+from cachelib import BaseCache, FileSystemCache, NullCache
 from pkg_resources import DistributionNotFound, get_distribution
 from simplebot import DeltaBot
 from simplebot.bot import Replies
+
+
+class Planetaneperiano:
+    """Get memes from https://www.planetaneperiano.com"""
+
+    def __init__(self, cache: BaseCache = NullCache()) -> None:
+        self.cache = cache
+        self.max_page = {
+            "general": 950,
+            "gamer": 350,
+            "otaku": 1300,
+        }
+
+    def get(self, category: str) -> dict:
+        page = random.randint(1, self.max_page[category])
+        url = f"https://www.planetaneperiano.com/neperianadas/latest/{category}?page={page}"
+        with session.get(url) as resp:
+            resp.raise_for_status()
+            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+        memes = []
+        for div in soup("div", class_="neperianadas"):
+            if div.img:
+                memes.append((div.img.get("alt"), div.img["src"]))
+
+        desc, url = random.choice(memes)
+        if url.startswith("/"):
+            url = f"https://www.planetaneperiano.com{url}"
+        img, ext = self.cache.get(url) or b"", ""
+        if not img:
+            with session.get(url) as resp:
+                resp.raise_for_status()
+                img = resp.content
+                ext = _get_ext(resp) or ".jpg"
+            self.cache.set(url, (img, ext))
+        return dict(text=desc, filename="meme" + ext, bytefile=io.BytesIO(img))
+
 
 try:
     __version__ = get_distribution(__name__).version
@@ -24,11 +63,40 @@ session.headers.update(
     }
 )
 session.request = functools.partial(session.request, timeout=15)  # type: ignore
+pnep = Planetaneperiano()
 
 
 @simplebot.hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     _getdefault(bot, "max_meme_size", 1024 * 1024 * 5)
+
+
+@simplebot.hookimpl
+def deltabot_start(bot: DeltaBot) -> None:
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    pnep.cache = FileSystemCache(
+        path, threshold=2000, default_timeout=60 * 60 * 24 * 30
+    )
+
+
+@simplebot.command
+def planetaneperiano(replies: Replies) -> None:
+    """Devuelve un meme al azar de la categoría general de https://www.planetaneperiano.com"""
+    replies.add(**pnep.get("general"))
+
+
+@simplebot.command
+def gamer(replies: Replies) -> None:
+    """Devuelve un meme al azar de la categoría gamer de https://www.planetaneperiano.com"""
+    replies.add(**pnep.get("gamer"))
+
+
+@simplebot.command
+def otaku(replies: Replies) -> None:
+    """Devuelve un meme al azar de la categoría otaku de https://www.planetaneperiano.com"""
+    replies.add(**pnep.get("otaku"))
 
 
 @simplebot.command
@@ -43,15 +111,14 @@ def cuantocabron(bot: DeltaBot, replies: Replies) -> None:
     replies.add(**_get_meme(bot, "https://m.cuantocabron.com/aleatorio"))
 
 
-def _get_image(url: str) -> tuple:
-    with session.get(url) as res:
-        res.raise_for_status()
-        soup = bs4.BeautifulSoup(res.text, "html.parser")
-    img = soup("div", class_="storyContent")[-1].img
-    return (img["title"], img["src"])
-
-
 def _get_meme(bot: DeltaBot, url: str) -> dict:
+    def _get_image(url: str) -> tuple:
+        with session.get(url) as res:
+            res.raise_for_status()
+            soup = bs4.BeautifulSoup(res.text, "html.parser")
+        img = soup("div", class_="storyContent")[-1].img
+        return (img["title"], img["src"])
+
     img = b""
     max_meme_size = int(_getdefault(bot, "max_meme_size"))
     for _ in range(10):
@@ -99,10 +166,14 @@ def _getdefault(bot: DeltaBot, key: str, value=None) -> str:
 class TestPlugin:
     """Online tests"""
 
-    def test_cuantarazon(self, mocker):
+    def test_planetaneperiano(self, mocker) -> None:
+        msg = mocker.get_one_reply("/planetaneperiano")
+        assert msg.filename
+
+    def test_cuantarazon(self, mocker) -> None:
         msg = mocker.get_one_reply("/cuantarazon")
         assert msg.filename
 
-    def test_cuantocabron(self, mocker):
+    def test_cuantocabron(self, mocker) -> None:
         msg = mocker.get_one_reply("/cuantocabron")
         assert msg.filename
