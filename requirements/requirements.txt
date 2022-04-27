@@ -1,4 +1,4 @@
 simplebot==2.4.0
-requests==2.26.0
+requests==2.27.1
 beautifulsoup4==4.11.1
 cachelib==0.6.0
